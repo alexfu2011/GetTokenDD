@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Security.Cryptography;
 using System.Text;
+using System.Web;
 
 namespace GetTokenDD
 {
@@ -15,12 +17,6 @@ namespace GetTokenDD
             return DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.ffffff+08:00");
         }
 
-        public static string RandomInt4()
-        {
-            Random random = new Random();
-            return random.Next(1000, 9999).ToString();
-        }
-
         public static long GetTime13()
         {
             TimeSpan ts = DateTime.Now.ToUniversalTime() - new DateTime(1970, 1, 1);
@@ -28,9 +24,23 @@ namespace GetTokenDD
             return time;
         }
 
-        public static string Signature(string secretkey, string method, string timestamp, string nonce, string uri)
+        public static string RandomInt4()
         {
-            string sign = string.Format("{0}\n{1}\n{2}\n{3}", method, timestamp, nonce, uri);
+            Random random = new Random();
+            return random.Next(1000, 9999).ToString();
+        }
+
+        public static string Signature(string secretkey, string method, string timestamp, string nonce, string uri, string parameters)
+        {
+            string sign = "";
+            if (string.IsNullOrEmpty(parameters))
+            {
+                sign = string.Format("{0}\n{1}\n{2}\n{3}", method, timestamp, nonce, uri);
+            }
+            else
+            {
+                sign = string.Format("{0}\n{1}\n{2}\n{3}\n{4}", method, timestamp, nonce, uri, parameters);
+            }
             return HmacSha256(secretkey, sign);
         }
 
@@ -61,11 +71,18 @@ namespace GetTokenDD
             }
             return "00-00-00-00-00-00";
         }
+        public static string GetQueryString(object obj)
+        {
+            var properties = from p in obj.GetType().GetProperties()
+                             where p.GetValue(obj, null) != null
+                             select p.Name + "=" + HttpUtility.UrlEncode(p.GetValue(obj, null).ToString());
+
+            return String.Join("&", properties.ToArray());
+        }
 
         public static string PostData(NameValueCollection postData, string method, string url, Dictionary<string, string> headers)
         {
             WebClient wc = new WebClient();
-            //wc.Headers.Add("Content-Type", "application/x-www-form-urlencoded");
             foreach (var item in headers)
             {
                 wc.Headers.Add(item.Key, item.Value);

@@ -26,19 +26,27 @@ namespace GetTokenDD.Controllers
 
         public IActionResult Index()
         {
-            var token = _memoryCache.GetOrCreate("token", (entry) =>
+            string token = GetToken();
+            return Ok(new TokenResult { Token = token });
+        }
+
+        private string GetToken()
+        {
+            string token = _memoryCache.GetOrCreate("token", (entry) =>
             {
                 NameValueCollection formData = new NameValueCollection();
-                var headers = Headers();
-                string res = Utils.PostData(formData, method, baseUrl + token_uri, headers);
+                string url = baseUrl + token_uri;
+                string parameters = Utils.GetQueryString(new object());
+                var headers = Headers(token_uri, parameters);
+                string res = Utils.PostData(formData, method, url, headers);
                 Token token = JsonConvert.DeserializeObject<Token>(res);
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(token.content.data.expiresIn);
                 return token.content.data.accessToken;
             });
-            return Ok(new TokenResult { Token = token });
+            return token;
         }
 
-        private static Dictionary<string, string> Headers()
+        private Dictionary<string, string> Headers(string uri, string parameters)
         {
             string timestamp = Utils.TimeStamp();
             string nonce = Utils.GetTime13() + Utils.RandomInt4();
@@ -47,7 +55,7 @@ namespace GetTokenDD.Controllers
             headers["X-Hmac-Auth-Version"] = "1.0";
             headers["X-Hmac-Auth-Nonce"] = nonce;
             headers["apiKey"] = apikey;
-            headers["X-Hmac-Auth-Signature"] = Utils.Signature(secretkey, method, timestamp, nonce, token_uri);
+            headers["X-Hmac-Auth-Signature"] = Utils.Signature(secretkey, method, timestamp, nonce, uri, parameters);
             headers["X-Hmac-Auth-IP"] = "127.0.0.1";
             headers["X-Hmac-Auth-MAC"] = Utils.GetMacByNetworkInterface();
             return headers;
